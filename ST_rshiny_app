@@ -9,7 +9,7 @@ ui <- fluidPage(
       
       # Gene selection
       textAreaInput("genes_input", "Enter Genes (one per line)", 
-                    value = "Amd1\nOdc1\nSrm\nSms\nSat1", 
+                    value = "", 
                     height = "150px"),
       
       # Group selection
@@ -20,9 +20,9 @@ ui <- fluidPage(
       h4("Lesion Definition", style = "color: #3366cc; margin-top: 15px;"),
       p("Lesions will be defined based on the Spatial assay",
         style = "font-style: italic; color: #666;"),
-      textInput("lesion_gene1", "Marker Gene 1:", value = "Muc5ac"),
+      textInput("lesion_gene1", "Marker Gene 1:", value = "Gene1"),
       numericInput("lesion_threshold1", "Threshold 1:", value = 2, min = 0, step = 0.1),
-      textInput("lesion_gene2", "Marker Gene 2:", value = "Gkn1"),
+      textInput("lesion_gene2", "Marker Gene 2:", value = "Gene2"),
       numericInput("lesion_threshold2", "Threshold 2:", value = 5, min = 0, step = 0.1),
       # NEW BUTTON
       actionButton("define_lesion", "Define Lesion Areas", 
@@ -142,8 +142,8 @@ ui <- fluidPage(
                  ),
                  h3("Defining Lesions"),
                  p("Lesions are identified as cells where:"),
-                 p("1. Marker Gene 1 (default: Muc5ac) expression is above Threshold 1 (default: 2)"),
-                 p("2. Marker Gene 2 (default: Gkn1) expression is above Threshold 2 (default: 5)"),
+                 p("1. Marker Gene 1 (default: Gene1) expression is above Threshold 1 (default: 2)"),
+                 p("2. Marker Gene 2 (default: Gene2) expression is above Threshold 2 (default: 5)"),
                  p("Cells meeting both criteria are labeled as 'Lesion', all others as 'Other'"),
                  p("Note: Lesions are always defined using the Spatial assay, regardless of which assay is selected for analysis."),
                  
