@@ -1,0 +1,1539 @@
+# UI Definition
+ui <- fluidPage(
+  titlePanel("Spatial Transcriptomics Data Analysis Tool"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      fileInput("rds_file", "Upload Seurat RDS File",
+                accept = c(".rds", ".RDS")),
+      
+      # Gene selection
+      textAreaInput("genes_input", "Enter Genes (one per line)", 
+                    value = "Amd1\nOdc1\nSrm\nSms\nSat1", 
+                    height = "150px"),
+      
+      # Group selection
+      checkboxGroupInput("groups", "Select Groups to Analyze:",
+                         choices = NULL),
+      
+      # Lesion definition settings - MODIFIED FOR CLARITY
+      h4("Lesion Definition", style = "color: #3366cc; margin-top: 15px;"),
+      p("Lesions will be defined based on the Spatial assay",
+        style = "font-style: italic; color: #666;"),
+      textInput("lesion_gene1", "Marker Gene 1:", value = "Muc5ac"),
+      numericInput("lesion_threshold1", "Threshold 1:", value = 2, min = 0, step = 0.1),
+      textInput("lesion_gene2", "Marker Gene 2:", value = "Gkn1"),
+      numericInput("lesion_threshold2", "Threshold 2:", value = 5, min = 0, step = 0.1),
+      # NEW BUTTON
+      actionButton("define_lesion", "Define Lesion Areas", 
+                   class = "btn-warning", 
+                   style = "margin-top: 5px; margin-bottom: 10px;"),
+      
+      # Assay and normalization options
+      radioButtons("assay_choice", "Choose Assay:",
+                   choices = c("Original (Spatial)" = "Spatial"),
+                   selected = "Spatial"),
+      checkboxInput("create_norm_assay", "Create Log-Normalized Assay if not present", TRUE),
+      actionButton("create_lognorm", "Create Log-Normalized Assay Now", 
+                   class = "btn-info", 
+                   style = "margin-top: 5px; margin-bottom: 10px;"),
+      checkboxInput("preserve_sct", "Preserve SCT assay when normalizing", TRUE),
+      
+      # Plot options
+      checkboxInput("z_score", "Use Z-score Normalization", TRUE),
+      radioButtons("normalization", "Expression Normalization:",
+                   choices = c("log2" = "log2", "None" = "none"),
+                   selected = "log2"),
+      
+      # Cell Type Annotation Options
+      h4("Cell Type Annotation"),
+      radioButtons("ref_dataset", "Reference Dataset:",
+                   choices = c("ImmGen" = "immgen", 
+                               "MouseRNAseq" = "mouse.rnaseq"),
+                   selected = "immgen"),
+      actionButton("run_annotation", "Run Cell Type Annotation", 
+                   class = "btn-success", 
+                   style = "margin-top: 5px; margin-bottom: 10px;"),
+      
+      # Action button
+      actionButton("generate", "Generate Plots", 
+                   class = "btn-primary", 
+                   style = "margin-top: 10px;"),
+      
+      # Download buttons
+      downloadButton("download_circular", "Download Circular Plot"),
+      downloadButton("download_violin", "Download Violin Plot"),
+      downloadButton("download_stats", "Download Statistics"),
+      hr(),
+      downloadButton("download_lesion", "Download Lesion Plot"),
+      downloadButton("download_spatial", "Download All Spatial Plots"),
+      downloadButton("download_celltypes", "Download Cell Type Plots"),
+      downloadButton("download_histology_celltypes", "Download Histology Cell Type Plots"),
+      hr(),
+      tags$div(
+        style = "margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;",
+        tags$p(
+          style = "font-size: 12px; margin-bottom: 5px;",
+          "Created by Hamid K Rudsari"
+        ),
+        tags$p(
+          style = "font-size: 12px; margin-bottom: 5px;"
+        ),
+        tags$p(
+          style = "font-size: 12px; margin-bottom: 5px;",
+          tags$a(href = "mailto:khoshfekr1994@gmail.com", "khoshfekr1994@gmail.com")
+        ),
+        tags$p(
+          style = "font-size: 12px; margin-bottom: 5px;",
+          tags$a(href = "mailto:hkhoshfekr@mdanderson.org", "hkhoshfekr@mdanderson.org")
+        ),
+        tags$p(
+          style = "font-size: 12px; margin-bottom: 0;",
+          "Please let me know if you have any questions!"
+        )
+      )
+    ),
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Circular Plot", plotOutput("circular_plot", height = "600px")),
+        tabPanel("Violin Plot", plotOutput("violin_plot", height = "600px")),
+        tabPanel("Spatial Images", 
+                 plotOutput("lesion_plot", height = "400px"),
+                 hr(),
+                 h4("Gene Expression Spatial Plots"),
+                 uiOutput("spatial_gene_plots")),
+        tabPanel("Cell Types", 
+                 h4("Cell Type Distribution"),
+                 plotOutput("celltype_plot", height = "400px"),
+                 hr(),
+                 h4("Cell Type Distribution by Histology"),
+                 plotOutput("celltype_histology_plot", height = "500px"),
+                 hr(),
+                 h4("Tissue Region Composition"),
+                 plotOutput("histology_composition_plot", height = "400px"),
+                 hr(),
+                 h4("Cell Type Enrichment in Lesion vs Other Regions"),
+                 plotOutput("enrichment_plot", height = "500px"),
+                 hr(),
+                 h4("Gene Expression Across Cell Types"),
+                 plotOutput("dotplot", height = "600px"),
+                 hr(),
+                 h4("Gene Expression Across Cell Types By Histology"),
+                 plotOutput("histology_dotplot", height = "800px")
+        ),
+        tabPanel("Data Summary", 
+                 h4("Expression Statistics"),
+                 tableOutput("summary_stats"),
+                 h4("Statistical Tests"),
+                 tableOutput("p_values")),
+        tabPanel("Help", 
+                 h3("Instructions"),
+                 p("This app allows you to analyze spatial transcriptomics data:"),
+                 tags$ol(
+                   tags$li("Upload a Seurat RDS file containing spatial transcriptomics data"),
+                   tags$li("Enter the genes you want to analyze (one gene per line)"),
+                   tags$li("Select the groups you want to compare"),
+                   tags$li("Choose which assay to use (original or Log-Normalized)"),
+                   tags$li("Define lesion areas by setting marker genes and expression thresholds"),
+                   tags$li("Choose analysis options (normalization, z-score)"),
+                   tags$li("Click 'Generate Plots' to create the visualizations"),
+                   tags$li("Use the download buttons to save your results")
+                 ),
+                 h3("Defining Lesions"),
+                 p("Lesions are identified as cells where:"),
+                 p("1. Marker Gene 1 (default: Muc5ac) expression is above Threshold 1 (default: 2)"),
+                 p("2. Marker Gene 2 (default: Gkn1) expression is above Threshold 2 (default: 5)"),
+                 p("Cells meeting both criteria are labeled as 'Lesion', all others as 'Other'"),
+                 p("Note: Lesions are always defined using the Spatial assay, regardless of which assay is selected for analysis."),
+                 
+                 h3("Assay Options"),
+                 p("This app supports multiple assay types:"),
+                 tags$ul(
+                   tags$li(strong("Original (Spatial):"), " The original data without additional normalization"),
+                   tags$li(strong("SCT:"), " If present, the SCT-transformed data from the original dataset"),
+                   tags$li(strong("Log-Normalized:"), " Data normalized using LogNormalize method with scale factor 10000, followed by variable feature selection and scaling")
+                 ),
+                 p("If the Log-Normalized assay doesn't exist in your data, the app can create it for you when needed."),
+                 p("You can choose whether to preserve the SCT assay (if present) when creating the Log-Normalized assay."),
+                 
+                 h3("About the Plots"),
+                 p("Circular Plot: Shows the mean expression and fraction of cells expressing each gene across different tissue regions."),
+                 p("Violin Plot: Compares gene expression distributions between tissue regions, with statistical significance."),
+                 p("Spatial Images: Displays the lesion areas and spatial gene expression patterns directly on the tissue sections."),
+                 p("Cell Types: Shows the distribution of predicted cell types and gene expression patterns across these cell types."),
+                 
+                 h3("Cell Type Annotation"),
+                 p("This app uses SingleR to automatically annotate cell types based on reference datasets:"),
+                 tags$ul(
+                   tags$li(strong("ImmGen:"), " The Immunological Genome Project database, specializing in immune cell types"),
+                   tags$li(strong("MouseRNAseq:"), " A broader reference of mouse cell types from various tissues")
+                 ),
+                 p("To perform cell type annotation:"),
+                 tags$ol(
+                   tags$li("Select a reference dataset"),
+                   tags$li("Click 'Run Cell Type Annotation'"),
+                   tags$li("View the cell type distribution in the Cell Types tab"),
+                   tags$li("Explore gene expression patterns across the identified cell types")
+                 ),
+                 p("Note: Cell type annotation uses the currently selected assay for gene expression values."),
+                 
+                 p("The app provides multiple visualizations of cell type distribution in relation to histology:"),
+                 tags$ul(
+                   tags$li(strong("Cell Type Distribution:"), " Shows the overall distribution of cell types in each sample"),
+                   tags$li(strong("Cell Type Distribution by Histology:"), " Compares the distribution of cell types between lesion and non-lesion regions"),
+                   tags$li(strong("Tissue Region Composition:"), " Shows what cell types make up each tissue region (lesion vs. other)"),
+                   tags$li(strong("Cell Type Enrichment:"), " Identifies which cell types are enriched or depleted in lesion regions compared to non-lesion regions"),
+                   tags$li(strong("Gene Expression by Cell Type:"), " Shows expression patterns of selected genes across different cell types"),
+                   tags$li(strong("Gene Expression by Cell Type and Histology:"), " Shows how gene expression varies across cell types within different histological regions")
+                 ),
+                 p("These visualizations allow you to identify cell type-specific changes associated with lesions, which can provide insights into disease mechanisms and potential therapeutic targets."),
+                 
+                 h3("Created By:"),
+                 p("Hamid Khoshfekr Rudsari, PhD"),
+                 p("khoshfekr1994@gmail.com")
+        )
+      )
+    )
+  )
+)
+# Server logic
+server <- function(input, output, session) {
+  # Reactive value to store the loaded Seurat object
+  seurat_data <- reactiveVal(NULL)
+  
+  # NEW: Reactive value to track the lesion definition status
+  lesion_defined <- reactiveVal(FALSE)
+  
+  # Reactive values for plot results
+  plot_results <- reactiveValues(
+    circular = NULL,
+    violin = NULL,
+    summary_data = NULL,
+    p_values = NULL,
+    norm_assay_created = FALSE,
+    spatial_plots = NULL,
+    lesion_plot = NULL,
+    celltype_annotation = NULL,
+    celltype_plot = NULL,
+    dotplot = NULL,
+    celltype_histology_plot = NULL,
+    histology_composition_plot = NULL,
+    enrichment_plot = NULL,
+    histology_dotplot = NULL
+  )
+  
+  # Function to visualize spatial expression for a single gene
+  visualize_spatial_expression_mouse <- function(spatial_data, 
+                                                 gene, 
+                                                 pt_size = 85,
+                                                 groups = c("Dox_25wks", "Dox_15wks"),
+                                                 assay = "Spatial") {
+    # Verify input groups exist in data
+    if (!all(groups %in% unique(spatial_data$orig.ident))) {
+      stop("Specified groups not found in data. Available groups: ", 
+           paste(unique(spatial_data$orig.ident), collapse = ", "))
+    }
+    
+    # Create a list to store plots
+    plot_list <- list()
+    
+    # Create plots for each sample
+    for(sample_id in groups) {
+      # Subset data for the specific sample
+      sample_data <- subset(spatial_data, orig.ident == sample_id)
+      DefaultAssay(sample_data) <- assay
+      
+      # Create gene expression plot
+      p1 <- SpatialFeaturePlot(sample_data, 
+                               features = gene,
+                               pt.size.factor = pt_size,
+                               alpha = c(1, 2),
+                               stroke = 0.1) +
+        scale_fill_gradientn(
+          colors = rev(brewer.pal(11, "Spectral"))
+        ) +
+        ggtitle(paste(sample_id, "-", gene)) +
+        theme(
+          plot.title = element_text(size = 14, face = "bold", hjust = 0),
+          plot.title.position = "plot"
+        )
+      
+      # Store plot
+      plot_list[[sample_id]] <- p1
+    }
+    
+    # Combine all plots
+    if (length(groups) > 1) {
+      # Use patchwork to combine plots
+      combined_plot <- plot_list[[groups[1]]] / plot_list[[groups[2]]] +
+        plot_layout(guides = "collect") &
+        theme(plot.margin = margin(10, 10, 10, 10))
+    } else {
+      combined_plot <- plot_list[[groups[1]]]
+    }
+    
+    return(list(
+      combined_plot = combined_plot,
+      individual_plots = plot_list
+    ))
+  }
+  
+  # Function to visualize spatial expression for multiple genes
+  visualize_spatial_genes_mouse <- function(spatial_data, 
+                                            genes, 
+                                            pt_size = 85,
+                                            groups = c("Dox_25wks", "Dox_15wks"),
+                                            assay = "Spatial") {
+    # Verify genes exist in the dataset
+    available_features <- rownames(spatial_data[[assay]])
+    missing_genes <- setdiff(genes, available_features)
+    
+    if (length(missing_genes) > 0) {
+      warning("The following genes are not in the dataset: ", 
+              paste(missing_genes, collapse = ", "))
+      genes <- intersect(genes, available_features)
+      if (length(genes) == 0) {
+        stop("None of the specified genes are present in the dataset.")
+      }
+    }
+    
+    # Create plots for each gene
+    all_plots <- list()
+    
+    for(gene in genes) {
+      # Create plots for this gene
+      gene_plots <- visualize_spatial_expression_mouse(
+        spatial_data = spatial_data, 
+        gene = gene, 
+        pt_size = pt_size,
+        groups = groups,
+        assay = assay
+      )
+      
+      # Store the result
+      all_plots[[gene]] <- gene_plots
+    }
+    
+    return(all_plots)
+  }
+  
+  # Function to visualize lesion areas
+  visualize_lesion_areas <- function(spatial_data, 
+                                     groups = c("Dox_25wks", "Dox_15wks"),
+                                     pt_size = 85) {
+    # Verify input groups exist in data
+    if (!all(groups %in% unique(spatial_data$orig.ident))) {
+      stop("Specified groups not found in data. Available groups: ", 
+           paste(unique(spatial_data$orig.ident), collapse = ", "))
+    }
+    
+    # Create a list to store plots
+    plot_list <- list()
+    
+    # Create plots for each sample
+    for(sample_id in groups) {
+      # Subset data for the specific sample
+      sample_data <- subset(spatial_data, orig.ident == sample_id)
+      
+      # Create lesion visualization plot
+      p1 <- SpatialDimPlot(sample_data, 
+                           group.by = "Histology",
+                           pt.size.factor = pt_size,
+                           stroke = 0.1) +
+        scale_fill_manual(values = c("Lesion" = "gold", "Other" = "purple")) +
+        ggtitle(paste(sample_id, "- Lesion Areas")) +
+        theme(
+          plot.title = element_text(size = 14, face = "bold", hjust = 0),
+          plot.title.position = "plot"
+        )
+      
+      # Store plot
+      plot_list[[sample_id]] <- p1
+    }
+    
+    # Combine all plots
+    if (length(groups) > 1) {
+      # Use patchwork to combine plots
+      combined_plot <- plot_list[[groups[1]]] / plot_list[[groups[2]]] +
+        plot_layout(guides = "collect") &
+        theme(plot.margin = margin(10, 10, 10, 10))
+    } else {
+      combined_plot <- plot_list[[groups[1]]]
+    }
+    
+    return(list(
+      combined_plot = combined_plot,
+      individual_plots = plot_list
+    ))
+  }
+  # NEW: Add handler for the Define Lesion Areas Only button
+  observeEvent(input$define_lesion, {
+    req(seurat_data())
+    
+    # Show progress
+    withProgress(message = 'Defining lesion areas...', value = 0, {
+      
+      # Get a copy of the Seurat object to work with
+      data_copy <- seurat_data()
+      
+      # Use the Spatial assay explicitly for lesion definition
+      tryCatch({
+        # Check if the marker genes exist in the Spatial assay
+        if (!all(c(input$lesion_gene1, input$lesion_gene2) %in% rownames(data_copy[["Spatial"]]))) {
+          showNotification("One or both marker genes not found in Spatial assay", type = "error")
+          return()
+        }
+        
+        # Define lesion areas based on the Spatial assay only
+        high_expression <- data_copy[["Spatial"]]@data[input$lesion_gene1,] > input$lesion_threshold1 & 
+          data_copy[["Spatial"]]@data[input$lesion_gene2,] > input$lesion_threshold2
+        
+        # Add this information to meta.data
+        data_copy$Histology <- "Other"
+        data_copy$Histology[high_expression] <- "Lesion"
+        
+        # Show how many cells were classified as lesion
+        lesion_count <- sum(data_copy$Histology == "Lesion")
+        total_count <- length(data_copy$Histology)
+        
+        showNotification(
+          paste0("Defined ", lesion_count, " of ", total_count, " cells as lesion (", 
+                 round(lesion_count/total_count*100, 1), "%) using Spatial assay"),
+          type = "message"
+        )
+        
+        # Update the seurat data with the modified object
+        seurat_data(data_copy)
+        
+        # Set lesion defined flag to true
+        lesion_defined(TRUE)
+        
+        # Generate and render lesion plot
+        if (length(input$groups) > 0) {
+          # Create lesion area plot
+          lesion_plot <- visualize_lesion_areas(
+            spatial_data = data_copy,
+            groups = input$groups,
+            pt_size = 85
+          )
+          plot_results$lesion_plot <- lesion_plot$combined_plot
+        }
+        
+      }, error = function(e) {
+        showNotification(paste("Error defining lesion areas:", e$message), type = "error")
+      })
+    })
+  })
+  # MODIFIED: Generate plots when button is clicked
+  observeEvent(input$generate, {
+    req(seurat_data(), input$genes_input, input$groups)
+    
+    # Show progress
+    withProgress(message = 'Generating plots...', value = 0, {
+      # Parse genes input
+      genes <- str_split(input$genes_input, "\n")[[1]]
+      genes <- str_trim(genes[genes != ""])
+      
+      # Check if we have genes
+      if (length(genes) == 0) {
+        showNotification("Please enter at least one gene", type = "error")
+        return()
+      }
+      
+      # Check if we have groups
+      if (length(input$groups) == 0) {
+        showNotification("Please select at least one group", type = "error")
+        return()
+      }
+      
+      # Get a copy of the Seurat object to work with
+      data_copy <- seurat_data()
+      
+      # Check if we need to create Log-Normalized assay
+      if ((input$assay_choice == "LogNormalized" || 
+           (input$create_norm_assay && !("LogNormalized" %in% names(data_copy@assays)))) && 
+          input$create_norm_assay) {
+        
+        withProgress(message = 'Creating Log-Normalized assay...', value = 0, {
+          tryCatch({
+            # Create Log-Normalized assay following the specified procedure
+            DefaultAssay(data_copy) <- "Spatial"
+            
+            # Handle SCT assay
+            has_sct <- "SCT" %in% names(data_copy@assays)
+            if (has_sct && !input$preserve_sct) {
+              data_copy[["SCT"]] <- NULL
+              showNotification("Removed SCT assay before normalization", type = "message")
+            } else if (has_sct && input$preserve_sct) {
+              showNotification("Preserving SCT assay as requested", type = "message")
+            }
+            
+            # Perform normalization
+            data_copy <- NormalizeData(data_copy, normalization.method = "LogNormalize", 
+                                       scale.factor = 10000, assay = "Spatial", verbose = FALSE)
+            data_copy <- FindVariableFeatures(data_copy, selection.method = "vst", verbose = FALSE)
+            data_copy <- ScaleData(data_copy, verbose = FALSE)
+            
+            # Create a new assay to store the log-normalized data
+            data_copy[["LogNormalized"]] <- data_copy[["Spatial"]]
+            
+            # Update available assays in the UI
+            available_assays <- names(data_copy@assays)
+            assay_choices <- c("Original (Spatial)" = "Spatial")
+            
+            # Add SCT if present
+            if("SCT" %in% available_assays) {
+              assay_choices <- c(assay_choices, "SCT" = "SCT")
+            }
+            
+            # Add LogNormalized 
+            assay_choices <- c(assay_choices, "Log-Normalized" = "LogNormalized")
+            
+            updateRadioButtons(session, "assay_choice",
+                               choices = assay_choices,
+                               selected = "LogNormalized")
+            
+            # Also update the seurat_data with the new assay
+            seurat_data(data_copy)
+            
+            # Set flag to indicate that we've created the assay
+            plot_results$norm_assay_created <- TRUE
+            
+            showNotification("Log-Normalized assay created successfully", type = "message")
+          }, error = function(e) {
+            showNotification(paste("Error creating Log-Normalized assay:", e$message), type = "error")
+          })
+        })
+      }
+      
+      # MODIFIED: Define lesion areas based on Spatial assay if not already defined
+      if (!lesion_defined()) {
+        tryCatch({
+          # Check if the marker genes exist in the Spatial assay
+          if (!all(c(input$lesion_gene1, input$lesion_gene2) %in% rownames(data_copy[["Spatial"]]))) {
+            showNotification("One or both marker genes not found in Spatial assay. Lesion definition skipped.", type = "warning")
+          } else {
+            # Define lesion areas based on the Spatial assay
+            high_expression <- data_copy[["Spatial"]]@data[input$lesion_gene1,] > input$lesion_threshold1 & 
+              data_copy[["Spatial"]]@data[input$lesion_gene2,] > input$lesion_threshold2
+            
+            # Add this information to meta.data
+            data_copy$Histology <- "Other"
+            data_copy$Histology[high_expression] <- "Lesion"
+            
+            # Show how many cells were classified as lesion
+            lesion_count <- sum(data_copy$Histology == "Lesion")
+            total_count <- length(data_copy$Histology)
+            
+            showNotification(
+              paste0("Defined ", lesion_count, " of ", total_count, " cells as lesion (", 
+                     round(lesion_count/total_count*100, 1), "%) using Spatial assay"),
+              type = "message"
+            )
+            
+            # Set lesion defined flag to true
+            lesion_defined(TRUE)
+          }
+        }, error = function(e) {
+          showNotification(paste("Error defining lesion areas:", e$message), type = "error")
+          data_copy$Histology <- "Other"  # Default all to "Other" if error
+        })
+      } else {
+        showNotification("Using previously defined lesion areas", type = "message")
+      }
+      
+      # Now set the active assay to the user's choice for expression analysis
+      DefaultAssay(data_copy) <- input$assay_choice
+      
+      incProgress(0.2)
+      
+      # Update the seurat data with the modified object including lesion definition
+      seurat_data(data_copy)
+      
+      # Try to generate circular plot
+      tryCatch({
+        circular_results <- create_dox_circular_plot_mouse(
+          data_copy, 
+          genes, 
+          groups = input$groups,
+          assay = input$assay_choice
+        )
+        
+        plot_results$circular <- circular_results$plot
+        plot_results$summary_data <- circular_results$summary_data
+        
+        # Generate violin plot
+        violin_results <- create_dox_violin_plot_mouse(
+          data_copy,
+          genes,
+          groups = input$groups,
+          normalization = input$normalization,
+          z_score_normalize = input$z_score,
+          assay = input$assay_choice
+        )
+        
+        plot_results$violin <- violin_results$plot
+        plot_results$p_values <- violin_results$p_values
+        
+        # Generate spatial plots for each gene
+        tryCatch({
+          # Create spatial plots for genes
+          spatial_plots <- visualize_spatial_genes_mouse(
+            spatial_data = data_copy,
+            genes = genes,
+            pt_size = 85,
+            groups = input$groups,
+            assay = input$assay_choice
+          )
+          plot_results$spatial_plots <- spatial_plots
+          
+          # Create lesion area plot
+          lesion_plot <- visualize_lesion_areas(
+            spatial_data = data_copy,
+            groups = input$groups,
+            pt_size = 85
+          )
+          plot_results$lesion_plot <- lesion_plot$combined_plot
+          
+          showNotification("Spatial plots generated successfully!", type = "message")
+        }, error = function(e) {
+          showNotification(paste("Error generating spatial plots:", e$message), type = "error")
+        })
+        
+        incProgress(0.2)
+        
+        # Success notification
+        showNotification("Plots generated successfully!", type = "message")
+        
+      }, error = function(e) {
+        showNotification(paste("Error generating plots:", e$message), type = "error")
+      })
+    })
+  })
+  # MODIFIED: Run cell type annotation when button is clicked
+  observeEvent(input$run_annotation, {
+    req(seurat_data())
+    
+    # Show progress
+    withProgress(message = 'Running cell type annotation...', value = 0, {
+      
+      tryCatch({
+        # Get a copy of the Seurat object to work with
+        data_copy <- seurat_data()
+        
+        # Determine which assay to use for annotation
+        assay_to_use <- input$assay_choice
+        
+        # Load the selected reference dataset
+        ref_dataset <- NULL
+        ref_labels <- NULL
+        
+        incProgress(0.1, detail = "Loading reference data...")
+        
+        if (input$ref_dataset == "immgen") {
+          ref_dataset <- celldex::ImmGenData()
+          ref_labels <- ref_dataset$label.main
+        } else if (input$ref_dataset == "mouse.rnaseq") {
+          ref_dataset <- celldex::MouseRNAseqData()
+          ref_labels <- ref_dataset$label.main
+        }
+        
+        if (is.null(ref_dataset)) {
+          showNotification("Error: Could not load reference dataset", type = "error")
+          return()
+        }
+        
+        incProgress(0.3, detail = "Running SingleR annotation...")
+        
+        # Extract expression matrix from the selected assay
+        expr_matrix <- as.matrix(data_copy[[assay_to_use]]@data)
+        
+        # Run SingleR annotation
+        predictions <- SingleR(
+          test = expr_matrix,
+          ref = ref_dataset,
+          labels = ref_labels
+        )
+        
+        incProgress(0.7, detail = "Updating data with annotations...")
+        
+        # Add cell type labels to the Seurat object
+        data_copy$cell_type <- predictions$labels
+        
+        # MODIFIED: Check if Histology is already defined, if not, define it using Spatial assay
+        if (!"Histology" %in% colnames(data_copy@meta.data) || !lesion_defined()) {
+          # Use Spatial assay for defining histology
+          showNotification("Histology not defined yet. Defining lesion areas using Spatial assay.", 
+                           type = "warning", duration = 10)
+          
+          # Try to use user-defined lesion genes
+          lesion_gene1 <- input$lesion_gene1
+          lesion_gene2 <- input$lesion_gene2
+          lesion_threshold1 <- input$lesion_threshold1
+          lesion_threshold2 <- input$lesion_threshold2
+          
+          # Check if the marker genes exist in the Spatial assay
+          if (all(c(lesion_gene1, lesion_gene2) %in% rownames(data_copy[["Spatial"]]))) {
+            # Define lesion areas
+            high_expression <- data_copy[["Spatial"]]@data[lesion_gene1,] > lesion_threshold1 & 
+              data_copy[["Spatial"]]@data[lesion_gene2,] > lesion_threshold2
+            
+            # Add this information to meta.data
+            data_copy$Histology <- "Other"
+            data_copy$Histology[high_expression] <- "Lesion"
+            
+            # Show how many cells were classified as lesion
+            lesion_count <- sum(data_copy$Histology == "Lesion")
+            total_count <- length(data_copy$Histology)
+            
+            showNotification(
+              paste0("Defined ", lesion_count, " of ", total_count, " cells as lesion (", 
+                     round(lesion_count/total_count*100, 1), "%) using Spatial assay"),
+              type = "message"
+            )
+            
+            lesion_defined(TRUE)
+          } else {
+            # If marker genes not found, create a dummy Histology column
+            data_copy$Histology <- "Other"
+            showNotification("Marker genes not found in Spatial assay. All cells labeled as 'Other'.", 
+                             type = "warning", duration = 10)
+          }
+        } else {
+          showNotification("Using previously defined lesion areas for cell type analysis", type = "message")
+        }
+        
+        # Update the stored Seurat object
+        seurat_data(data_copy)
+        
+        # Store the annotation results
+        plot_results$celltype_annotation <- predictions
+        
+        # Create cell type distribution plot
+        celltype_counts <- table(data_copy$cell_type, data_copy$orig.ident)
+        celltype_df <- as.data.frame(celltype_counts)
+        colnames(celltype_df) <- c("CellType", "Sample", "Count")
+        
+        # Calculate percentages within each sample
+        celltype_df <- celltype_df %>%
+          group_by(Sample) %>%
+          mutate(Percentage = Count / sum(Count) * 100) %>%
+          ungroup()
+        
+        # Create the plot
+        celltype_plot <- ggplot(celltype_df, aes(x = reorder(CellType, -Percentage), y = Percentage, fill = Sample)) +
+          geom_bar(stat = "identity", position = "dodge") +
+          theme_classic() +
+          labs(x = "Cell Type", y = "Percentage", title = "Cell Type Distribution") +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+        
+        plot_results$celltype_plot <- celltype_plot
+        
+        # Create cell type distribution by histology
+        celltype_histology_df <- as.data.frame(table(data_copy$cell_type, data_copy$Histology, data_copy$orig.ident))
+        colnames(celltype_histology_df) <- c("CellType", "Histology", "Sample", "Count")
+        
+        # Calculate percentages within each sample and histology
+        celltype_histology_df <- celltype_histology_df %>%
+          group_by(Sample, Histology) %>%
+          mutate(Percentage = Count / sum(Count) * 100) %>%
+          ungroup()
+        
+        # Create the histology-specific cell type distribution plot
+        celltype_histology_plot <- ggplot(
+          celltype_histology_df, 
+          aes(x = reorder(CellType, -Percentage), y = Percentage, fill = Histology)
+        ) +
+          geom_bar(stat = "identity", position = "dodge") +
+          theme_classic() +
+          scale_fill_manual(values = c("Lesion" = "#FC8D62", "Other" = "#66C2A5")) +
+          labs(x = "Cell Type", y = "Percentage", title = "Cell Type Distribution by Histology") +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          facet_wrap(~Sample, scales = "free_y")
+        
+        plot_results$celltype_histology_plot <- celltype_histology_plot
+        
+        # Create a stacked bar chart showing composition of each histology region
+        histology_composition_plot <- ggplot(
+          celltype_histology_df, 
+          aes(x = Histology, y = Percentage, fill = CellType)
+        ) +
+          geom_bar(stat = "identity", position = "stack") +
+          theme_classic() +
+          labs(x = "Tissue Region", y = "Percentage", title = "Cell Type Composition by Tissue Region") +
+          theme(legend.position = "right") +
+          facet_wrap(~Sample, scales = "free_y")
+        
+        plot_results$histology_composition_plot <- histology_composition_plot
+        
+        # Create enrichment analysis to see which cell types are enriched in lesion vs other regions
+        celltype_enrichment_df <- celltype_histology_df %>%
+          select(CellType, Histology, Sample, Count) %>%
+          group_by(CellType, Sample) %>%
+          pivot_wider(names_from = Histology, values_from = Count, values_fill = list(Count = 0)) %>%
+          mutate(
+            Total = Lesion + Other,
+            LesionPct = Lesion / Total * 100,
+            OtherPct = Other / Total * 100,
+            EnrichmentScore = log2((Lesion / sum(Lesion)) / (Other / sum(Other)))
+          ) %>%
+          ungroup()
+        
+        # Create enrichment plot
+        enrichment_plot <- ggplot(
+          celltype_enrichment_df, 
+          aes(x = reorder(CellType, EnrichmentScore), y = EnrichmentScore, fill = EnrichmentScore > 0)
+        ) +
+          geom_bar(stat = "identity") +
+          scale_fill_manual(values = c("FALSE" = "#66C2A5", "TRUE" = "#FC8D62"), 
+                            name = "Enriched in") +
+          geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+          theme_classic() +
+          labs(x = "Cell Type", y = "Log2 Enrichment (Lesion vs Other)", 
+               title = "Cell Type Enrichment Analysis") +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          facet_wrap(~Sample, scales = "free_y")
+        
+        plot_results$enrichment_plot <- enrichment_plot
+        
+        incProgress(0.9, detail = "Creating DotPlot...")
+        
+        # If genes are defined, create a DotPlot
+        if (!is.null(input$genes_input) && nchar(input$genes_input) > 0) {
+          # Parse genes input
+          genes <- str_split(input$genes_input, "\n")[[1]]
+          genes <- str_trim(genes[genes != ""])
+          
+          if (length(genes) > 0) {
+            # Create DotPlot for each sample group
+            dotplots <- list()
+            
+            for (group in input$groups) {
+              # Subset data for this group
+              group_data <- subset(data_copy, subset = orig.ident == group)
+              
+              # Calculate average expression for each cell type and gene
+              avg_exp <- AverageExpression(group_data, 
+                                           features = genes, 
+                                           group.by = "cell_type",
+                                           assay = assay_to_use)
+              
+              # Convert to dataframe for filtering
+              avg_exp_df <- as.data.frame(avg_exp[[assay_to_use]])
+              
+              # Identify cell types with at least one non-zero gene expression
+              non_zero_cells <- names(which(colSums(avg_exp_df > 0) > 0))
+              
+              # Subset data to include only those cell types
+              group_filtered <- subset(group_data, subset = cell_type %in% non_zero_cells)
+              
+              # Create DotPlot
+              if (length(unique(group_filtered$cell_type)) > 0) {
+                dp <- DotPlot(group_filtered, 
+                              features = genes, 
+                              group.by = "cell_type",
+                              assay = assay_to_use,
+                              col.min = 0) + 
+                  theme(axis.text.x = element_text(angle = 45, hjust = 1, face = 'italic')) +
+                  ggtitle(group)
+                
+                dotplots[[group]] <- dp
+              }
+            }
+            
+            # Combine all dotplots
+            if (length(dotplots) > 1) {
+              combined_dotplot <- wrap_plots(dotplots, ncol = 1)
+            } else if (length(dotplots) == 1) {
+              combined_dotplot <- dotplots[[1]]
+            } else {
+              combined_dotplot <- NULL
+            }
+            
+            plot_results$dotplot <- combined_dotplot
+            
+            # Create DotPlot for each sample group, split by histology
+            dotplots_histology <- list()
+            
+            for (group in input$groups) {
+              # Subset data for this group
+              group_data <- subset(data_copy, subset = orig.ident == group)
+              
+              # Create separate plots for Lesion and Other
+              for (region in c("Lesion", "Other")) {
+                # Subset to just this histology
+                region_data <- subset(group_data, subset = Histology == region)
+                
+                # Skip if no cells in this region
+                if (ncol(region_data) == 0) next
+                
+                # Calculate average expression for each cell type and gene
+                avg_exp <- AverageExpression(region_data, 
+                                             features = genes, 
+                                             group.by = "cell_type",
+                                             assay = assay_to_use)
+                
+                # Convert to dataframe for filtering
+                avg_exp_df <- as.data.frame(avg_exp[[assay_to_use]])
+                
+                # Identify cell types with at least one non-zero gene expression
+                non_zero_cells <- names(which(colSums(avg_exp_df > 0) > 0))
+                
+                # Subset data to include only those cell types
+                region_filtered <- subset(region_data, subset = cell_type %in% non_zero_cells)
+                
+                # Create DotPlot
+                if (length(unique(region_filtered$cell_type)) > 0) {
+                  dp <- DotPlot(region_filtered, 
+                                features = genes, 
+                                group.by = "cell_type",
+                                assay = assay_to_use,
+                                col.min = 0) + 
+                    theme(axis.text.x = element_text(angle = 45, hjust = 1, face = 'italic')) +
+                    ggtitle(paste(group, "-", region))
+                  
+                  dotplots_histology[[paste(group, region, sep = "_")]] <- dp
+                }
+              }
+            }
+            
+            # Combine all dotplots
+            if (length(dotplots_histology) > 0) {
+              combined_histology_dotplot <- wrap_plots(dotplots_histology, ncol = 2)
+              plot_results$histology_dotplot <- combined_histology_dotplot
+            }
+          }
+        }
+        
+        showNotification("Cell type annotation completed successfully!", type = "message")
+        
+      }, error = function(e) {
+        showNotification(paste("Error in cell type annotation:", e$message), type = "error")
+      })
+    })
+  })
+  # Create Log-Normalized assay when button is clicked
+  observeEvent(input$create_lognorm, {
+    req(seurat_data())
+    
+    # Show progress
+    withProgress(message = 'Creating Log-Normalized assay...', value = 0, {
+      
+      # Get a copy of the Seurat object to work with
+      data_copy <- seurat_data()
+      
+      # Check if LogNormalized assay already exists
+      if ("LogNormalized" %in% names(data_copy@assays)) {
+        showNotification("Log-Normalized assay already exists", type = "warning")
+        return()
+      }
+      
+      tryCatch({
+        # Create Log-Normalized assay following the specified procedure
+        DefaultAssay(data_copy) <- "Spatial"
+        
+        # Handle SCT assay
+        has_sct <- "SCT" %in% names(data_copy@assays)
+        if (has_sct && !input$preserve_sct) {
+          data_copy[["SCT"]] <- NULL
+          showNotification("Removed SCT assay before normalization", type = "message")
+        } else if (has_sct && input$preserve_sct) {
+          showNotification("Preserving SCT assay as requested", type = "message")
+        }
+        
+        # Perform normalization
+        data_copy <- NormalizeData(data_copy, normalization.method = "LogNormalize", 
+                                   scale.factor = 10000)
+        data_copy <- FindVariableFeatures(data_copy, selection.method = "vst")
+        data_copy <- ScaleData(data_copy)
+        
+        # Create a new assay to store the log-normalized data
+        data_copy[["LogNormalized"]] <- data_copy[["Spatial"]]
+        
+        # Update available assays in the UI
+        available_assays <- names(data_copy@assays)
+        assay_choices <- c("Original (Spatial)" = "Spatial")
+        
+        # Add SCT if present
+        if("SCT" %in% available_assays) {
+          assay_choices <- c(assay_choices, "SCT" = "SCT")
+        }
+        
+        # Add LogNormalized 
+        assay_choices <- c(assay_choices, "Log-Normalized" = "LogNormalized")
+        
+        updateRadioButtons(session, "assay_choice",
+                           choices = assay_choices,
+                           selected = "LogNormalized")
+        
+        # Update the seurat_data with the modified object
+        seurat_data(data_copy)
+        
+        # Set flag to indicate that we've created the assay
+        plot_results$norm_assay_created <- TRUE
+        
+        showNotification("Log-Normalized assay created successfully", type = "message")
+      }, error = function(e) {
+        showNotification(paste("Error creating Log-Normalized assay:", e$message), type = "error")
+      })
+    })
+  })
+  # Load the RDS file when uploaded
+  observeEvent(input$rds_file, {
+    req(input$rds_file)
+    
+    # Show loading message
+    showModal(modalDialog(
+      "Loading RDS file...",
+      footer = NULL
+    ))
+    
+    # Load the RDS file
+    tryCatch({
+      data <- readRDS(input$rds_file$datapath)
+      
+      # Store original data without histology information
+      seurat_data(data)
+      
+      # Reset lesion_defined flag
+      lesion_defined(FALSE)
+      
+      # Check available assays
+      available_assays <- names(data@assays)
+      assay_choices <- c("Original (Spatial)" = "Spatial")
+      
+      # Add SCT if present
+      if("SCT" %in% available_assays) {
+        assay_choices <- c(assay_choices, "SCT" = "SCT")
+      }
+      
+      # Add LogNormalized if present
+      if("LogNormalized" %in% available_assays) {
+        assay_choices <- c(assay_choices, "Log-Normalized" = "LogNormalized")
+      }
+      
+      # Update the UI element
+      updateRadioButtons(session, "assay_choice",
+                         choices = assay_choices,
+                         selected = "Spatial")
+      
+      # Update group choices
+      groups <- unique(data$orig.ident)
+      updateCheckboxGroupInput(session, "groups", 
+                               choices = groups, 
+                               selected = groups[1:min(2, length(groups))])
+      
+      # Remove the modal when done
+      removeModal()
+      
+      # Show notification
+      showNotification("RDS file loaded successfully. Remember to define lesion areas before analysis.", 
+                       type = "message", duration = 5)
+      
+    }, error = function(e) {
+      # Show error message
+      removeModal()
+      showModal(modalDialog(
+        title = "Error",
+        paste("Failed to load RDS file:", e$message),
+        easyClose = TRUE
+      ))
+    })
+  })
+  # Create circular plot function 
+  create_dox_circular_plot_mouse <- function(spatial_data, key_genes, groups, assay) {
+    # Set the default assay
+    DefaultAssay(spatial_data) <- assay
+    
+    # Verify input groups exist in data
+    if (!all(groups %in% unique(spatial_data$orig.ident))) {
+      stop("Specified groups not found in data. Available groups: ", 
+           paste(unique(spatial_data$orig.ident), collapse = ", "))
+    }
+    # Filter for specified groups
+    samples <- subset(spatial_data, 
+                      orig.ident %in% groups,
+                      verbose = FALSE)
+    
+    # Add sample information
+    samples$Sample <- samples$orig.ident
+    samples$Sample <- factor(samples$Sample, levels = groups)
+    
+    # Verify gene presence
+    available_features <- rownames(samples)
+    present_genes <- key_genes[key_genes %in% available_features]
+    
+    if (length(present_genes) == 0) {
+      stop("None of the specified genes are present in the dataset.")
+    }
+    
+    # Extract gene expression data
+    gene_expression <- FetchData(samples, vars = c(present_genes, "Histology", "Sample"))
+    
+    # Reshape data
+    gene_expression_long <- reshape2::melt(gene_expression, 
+                                           id.vars = c("Histology", "Sample"),
+                                           variable.name = "Gene", 
+                                           value.name = "Expression")
+    
+    gene_summary <- gene_expression_long %>%
+      # First filter to only keep expressing cells
+      dplyr::filter(Expression > 0) %>%
+      # Group by Gene and Sample to get denominators
+      dplyr::group_by(Gene, Sample) %>%
+      # Count total expressing cells for denominator
+      mutate(total_expressing = dplyr::n()) %>%
+      # Now group by Histology too to get numerators
+      dplyr::group_by(Gene, Sample, Histology) %>%
+      dplyr::summarise(
+        fraction = dplyr::n() / dplyr::first(total_expressing) * 100,
+        mean_expr = mean(Expression, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      ungroup()
+    
+    # Create circular plot with side-by-side comparison
+    circular_plot <- ggplot(gene_summary, 
+                            aes(x = Gene, y = Histology, 
+                                fill = mean_expr, size = fraction)) +
+      geom_point(shape = 21, color = "black", stroke = 0.5) +
+      scale_size_continuous(range = c(1, 10), name = "Fraction (%)") +
+      scale_fill_gradientn(colors = brewer.pal(9, "YlOrRd"), 
+                           name = "Mean Expression") +
+      labs(
+        x = "",
+        y = "Tissue Regions"
+      ) +
+      theme_classic(base_size = 16) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, face = "italic", size = 14),
+        axis.text.y = element_text(size = 14),
+        axis.title.y = element_text(size = 16, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        strip.text = element_text(size = 14, face = "bold"),
+        panel.spacing = unit(2, "lines")
+      )
+    
+    # NOW apply the conditional faceting
+    if (length(groups) > 1) {
+      circular_plot <- circular_plot + facet_grid(. ~ Sample)
+    }
+    
+    return(list(
+      plot = circular_plot,
+      summary_data = gene_summary
+    ))
+  }
+  
+  # Create violin plot function 
+  create_dox_violin_plot_mouse <- function(
+    spatial_data, 
+    key_genes,
+    groups = c("Dox_15wks","Dox_25wks"),
+    normalization = "log2",
+    z_score_normalize = TRUE,
+    assay = "Spatial"
+  ) {
+    # Set the default assay
+    DefaultAssay(spatial_data) <- assay
+    
+    # Verify input groups exist in data
+    if (!all(groups %in% unique(spatial_data$orig.ident))) {
+      stop("Specified groups not found in data. Available groups: ", 
+           paste(unique(spatial_data$orig.ident), collapse = ", "))
+    }
+    
+    # Filter for specified groups
+    samples <- subset(spatial_data, 
+                      orig.ident %in% groups,
+                      verbose = FALSE)
+    
+    # Add sample information
+    samples$Sample <- samples$orig.ident
+    samples$Sample <- factor(samples$Sample, levels = groups)
+    
+    # Verify gene presence
+    available_features <- rownames(samples)
+    present_genes <- key_genes[key_genes %in% available_features]
+    
+    if (length(present_genes) == 0) {
+      stop("None of the specified genes are present in the dataset.")
+    }
+    
+    # Extract gene expression data
+    gene_expression <- FetchData(samples, vars = c(present_genes, "Histology", "Sample"))
+    
+    # Apply normalization
+    if (normalization == "log2") {
+      gene_expression[present_genes] <- log2(gene_expression[present_genes] + 1)
+    }
+    
+    # Z-score normalization if enabled
+    if (z_score_normalize) {
+      gene_expression[present_genes] <- scale(gene_expression[present_genes])
+    }
+    
+    # Reshape data to long format
+    gene_expression_long <- gene_expression %>%
+      pivot_longer(
+        cols = all_of(present_genes), 
+        names_to = "Gene", 
+        values_to = "Expression"
+      )
+    
+    # Convert Gene to factor with levels in the same order as key_genes
+    gene_expression_long$Gene <- factor(
+      gene_expression_long$Gene,
+      levels = present_genes
+    )
+    
+    # Prepare p-values dataframe for both samples
+    p_values <- gene_expression_long %>%
+      group_by(Gene, Sample) %>%
+      summarise(
+        p.value = tryCatch(
+          wilcox.test(
+            Expression[Histology == "Lesion"], 
+            Expression[Histology == "Other"]
+          )$p.value,
+          error = function(e) NA
+        ),
+        .groups = "drop"
+      ) %>%
+      ungroup()
+    
+    # Define colors for histology
+    histology_colors <- c(
+      "Lesion" = "#FC8D62",  # Orange
+      "Other" = "#66C2A5"    # Green
+    )
+    
+    # Create violin plot with side-by-side comparison
+    violin_plot <- ggplot(
+      gene_expression_long, 
+      aes(x = Gene, y = Expression, fill = Histology)
+    ) +
+      geom_violin(
+        trim = FALSE, 
+        alpha = 0.7,
+        adjust = 1,
+        scale = "width", 
+        drop = FALSE
+      ) + 
+      geom_boxplot(
+        width = 0.2,     
+        alpha = 0.7,
+        position = position_dodge(0.9)
+      ) +
+      labs(
+        x = "",
+        y = ifelse(z_score_normalize, 
+                   "Z-score Normalized Expression", 
+                   "log2(Expression + 1)"),
+        fill = "Histology"
+      ) +
+      geom_text(
+        data = p_values,
+        aes(
+          x = Gene, 
+          y = max(gene_expression_long$Expression) * 1.3, 
+          label = sprintf("p = %.2E", p.value)
+        ),
+        angle = 0,
+        size = 5, 
+        inherit.aes = FALSE
+      ) +
+      theme_classic(base_size = 14) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, face = "italic", size = 16),
+        axis.text.y = element_text(size = 16),
+        legend.position = "top",
+        strip.text = element_text(size = 14, face = "bold"),
+        panel.spacing = unit(2, "lines")
+      ) +
+      scale_fill_manual(values = histology_colors)
+    
+    # Apply the conditional faceting
+    if (length(groups) > 1) {
+      violin_plot <- violin_plot + facet_grid(. ~ Sample)
+    }
+    
+    return(list(
+      plot = violin_plot,
+      p_values = p_values,
+      expression_data = gene_expression_long
+    ))
+  }
+  # Render circular plot
+  output$circular_plot <- renderPlot({
+    req(plot_results$circular)
+    plot_results$circular
+  })
+  
+  # Render violin plot
+  output$violin_plot <- renderPlot({
+    req(plot_results$violin)
+    plot_results$violin
+  })
+  
+  # Render lesion plot
+  output$lesion_plot <- renderPlot({
+    req(plot_results$lesion_plot)
+    plot_results$lesion_plot
+  })
+  
+  # Render spatial gene plots
+  output$spatial_gene_plots <- renderUI({
+    req(plot_results$spatial_plots)
+    
+    # Create a list of plot outputs, one for each gene
+    plot_outputs <- lapply(names(plot_results$spatial_plots), function(gene) {
+      output_id <- paste0("spatial_plot_", gsub("[^[:alnum:]]", "_", gene))
+      
+      # Create a unique output for this gene
+      output[[output_id]] <- renderPlot({
+        plot_results$spatial_plots[[gene]]$combined_plot
+      })
+      
+      # Return a tagList with header and plot output
+      tagList(
+        h4(gene),
+        plotOutput(output_id, height = "400px"),
+        hr()
+      )
+    })
+    
+    # Return all plot outputs as a single UI element
+    do.call(tagList, plot_outputs)
+  })
+  
+  # Render cell type distribution plot
+  output$celltype_plot <- renderPlot({
+    req(plot_results$celltype_plot)
+    plot_results$celltype_plot
+  })
+  
+  # Render cell type by histology plot
+  output$celltype_histology_plot <- renderPlot({
+    req(plot_results$celltype_histology_plot)
+    plot_results$celltype_histology_plot
+  })
+  
+  # Render histology composition plot
+  output$histology_composition_plot <- renderPlot({
+    req(plot_results$histology_composition_plot)
+    plot_results$histology_composition_plot
+  })
+  
+  # Render cell type enrichment plot
+  output$enrichment_plot <- renderPlot({
+    req(plot_results$enrichment_plot)
+    plot_results$enrichment_plot
+  })
+  
+  # Render gene expression dotplot
+  output$dotplot <- renderPlot({
+    req(plot_results$dotplot)
+    plot_results$dotplot
+  })
+  
+  # Render histology-specific dotplot
+  output$histology_dotplot <- renderPlot({
+    req(plot_results$histology_dotplot)
+    plot_results$histology_dotplot
+  })
+  
+  # Render summary statistics table
+  output$summary_stats <- renderTable({
+    req(plot_results$summary_data)
+    plot_results$summary_data
+  })
+  
+  # Render p-values table
+  output$p_values <- renderTable({
+    req(plot_results$p_values)
+    plot_results$p_values
+  })
+  
+  # Download handlers
+  output$download_circular <- downloadHandler(
+    filename = function() {
+      paste("circular_plot_", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      req(plot_results$circular)
+      ggsave(file, plot = plot_results$circular, width = 10, height = 8, dpi = 300)
+    }
+  )
+  
+  output$download_violin <- downloadHandler(
+    filename = function() {
+      paste("violin_plot_", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      req(plot_results$violin)
+      ggsave(file, plot = plot_results$violin, width = 10, height = 8, dpi = 300)
+    }
+  )
+  
+  output$download_stats <- downloadHandler(
+    filename = function() {
+      paste("statistics_", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      req(plot_results$summary_data, plot_results$p_values)
+      
+      # Combine all statistics
+      stats_combined <- list(
+        summary = plot_results$summary_data,
+        p_values = plot_results$p_values
+      )
+      
+      # Export as CSV
+      write.csv(plot_results$summary_data, file, row.names = FALSE)
+    }
+  )
+  
+  # Download handler for cell type plots
+  output$download_celltypes <- downloadHandler(
+    filename = function() {
+      paste("celltype_plots_", Sys.Date(), ".zip", sep = "")
+    },
+    content = function(file) {
+      # Create a temporary directory
+      temp_dir <- tempdir()
+      file_paths <- c()
+      
+      # Save cell type distribution plot if available
+      if (!is.null(plot_results$celltype_plot)) {
+        celltype_file <- file.path(temp_dir, "celltype_distribution.png")
+        ggsave(celltype_file, 
+               plot = plot_results$celltype_plot, 
+               width = 10, height = 6, dpi = 300)
+        file_paths <- c(file_paths, celltype_file)
+      }
+      
+      # Save dotplot if available
+      if (!is.null(plot_results$dotplot)) {
+        dotplot_file <- file.path(temp_dir, "gene_expression_dotplot.png")
+        ggsave(dotplot_file, 
+               plot = plot_results$dotplot, 
+               width = 12, height = 8, dpi = 300)
+        file_paths <- c(file_paths, dotplot_file)
+      }
+      
+      # Save histology-specific cell type distribution plot if available
+      if (!is.null(plot_results$celltype_histology_plot)) {
+        hist_file <- file.path(temp_dir, "celltype_by_histology.png")
+        ggsave(hist_file, 
+               plot = plot_results$celltype_histology_plot, 
+               width = 12, height = 8, dpi = 300)
+        file_paths <- c(file_paths, hist_file)
+      }
+      
+      # Create zip file
+      zip(file, files = file_paths)
+    }
+  )
+  
+  # Download handler for histology-specific cell type plots
+  output$download_histology_celltypes <- downloadHandler(
+    filename = function() {
+      paste("histology_celltype_plots_", Sys.Date(), ".zip", sep = "")
+    },
+    content = function(file) {
+      # Create a temporary directory
+      temp_dir <- tempdir()
+      file_paths <- c()
+      
+      # Save histology-specific cell type distribution plot if available
+      if (!is.null(plot_results$celltype_histology_plot)) {
+        hist_file <- file.path(temp_dir, "celltype_by_histology.png")
+        ggsave(hist_file, 
+               plot = plot_results$celltype_histology_plot, 
+               width = 12, height = 8, dpi = 300)
+        file_paths <- c(file_paths, hist_file)
+      }
+      
+      # Save histology composition plot if available
+      if (!is.null(plot_results$histology_composition_plot)) {
+        comp_file <- file.path(temp_dir, "histology_composition.png")
+        ggsave(comp_file, 
+               plot = plot_results$histology_composition_plot, 
+               width = 10, height = 8, dpi = 300)
+        file_paths <- c(file_paths, comp_file)
+      }
+      
+      # Save enrichment plot if available
+      if (!is.null(plot_results$enrichment_plot)) {
+        enrich_file <- file.path(temp_dir, "cell_type_enrichment.png")
+        ggsave(enrich_file, 
+               plot = plot_results$enrichment_plot, 
+               width = 12, height = 8, dpi = 300)
+        file_paths <- c(file_paths, enrich_file)
+      }
+      
+      # Save histology-specific dotplot if available
+      if (!is.null(plot_results$histology_dotplot)) {
+        hdot_file <- file.path(temp_dir, "gene_expression_by_histology.png")
+        ggsave(hdot_file, 
+               plot = plot_results$histology_dotplot, 
+               width = 14, height = 10, dpi = 300)
+        file_paths <- c(file_paths, hdot_file)
+      }
+      
+      # Create zip file
+      zip(file, files = file_paths)
+    }
+  )
+  
+  # Download handler for lesion plot
+  output$download_lesion <- downloadHandler(
+    filename = function() {
+      paste("lesion_plot_", Sys.Date(), ".png", sep = "")
+    },
+    content = function(file) {
+      req(plot_results$lesion_plot)
+      ggsave(file, plot = plot_results$lesion_plot, width = 10, height = 8, dpi = 300)
+    }
+  )
+  
+  # Download all spatial plots as a zip file
+  output$download_spatial <- downloadHandler(
+    filename = function() {
+      paste("spatial_plots_", Sys.Date(), ".zip", sep = "")
+    },
+    content = function(file) {
+      req(plot_results$spatial_plots)
+      
+      # Create a temporary directory
+      temp_dir <- tempdir()
+      file_paths <- c()
+      
+      # Save each gene plot
+      for (gene in names(plot_results$spatial_plots)) {
+        gene_file <- file.path(temp_dir, paste0(gene, "_spatial.png"))
+        ggsave(gene_file, 
+               plot = plot_results$spatial_plots[[gene]]$combined_plot, 
+               width = 10, height = 8, dpi = 300)
+        file_paths <- c(file_paths, gene_file)
+      }
+      
+      # Save lesion plot if available
+      if (!is.null(plot_results$lesion_plot)) {
+        lesion_file <- file.path(temp_dir, "lesion_areas.png")
+        ggsave(lesion_file, 
+               plot = plot_results$lesion_plot, 
+               width = 10, height = 8, dpi = 300)
+        file_paths <- c(file_paths, lesion_file)
+      }
+      
+      # Create zip file
+      zip(file, files = file_paths)
+    }
+  )
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
